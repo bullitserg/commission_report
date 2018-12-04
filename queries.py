@@ -26,7 +26,7 @@ FROM procedures p
     AND c.actualId IS NULL
     AND c.active = 1
     AND c.contractStatusId = 15
-    BETWEEN DATE_FORMAT(SUBDATE(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 00:00:00')
+    AND c.actualCustomerSignToDateTime BETWEEN DATE_FORMAT(SUBDATE(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 00:00:00')
   AND DATE_FORMAT(SUBDATE(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 23:59:59')
 JOIN
 
