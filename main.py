@@ -214,12 +214,34 @@ excel_list_excel_data_no_account.write_data_from_iter(excel_data_no_account, top
 excel_list_excel_data_no_account.set_column_width(150, 70, 250, 100, 100, 250, 80, 50, 100, 100, 100, 550)
 excel_file = excel.save_file(excel_dir, file_name=excel_file_name)
 
+
+excel_2 = Excel()
+excel_list_good_commission = excel_2.create_list('К списанию')
+good_commission_info = cn.execute_query(get_good_commission_info_query)
+excel_list_good_commission.write_data_from_iter(good_commission_info, top_line=['Номер закупки',
+                                                                                'Дата публикации протокола',
+                                                                                'Участник для списания комиссии'])
+
+excel_list_good_commission.set_column_width(150, 120, 150)
+
+excel_list_error_commission = excel_2.create_list('К возврату')
+error_commission_info = cn.execute_query(get_error_commission_info_query)
+excel_list_error_commission.write_data_from_iter(error_commission_info, top_line=['Номер закупки',
+                                                                                  'Дата публикации протокола',
+                                                                                  'Участник с которого некорректно списана комиссия',
+                                                                                  'Дата подписания контракта',
+                                                                                  'Участник с которого надлежит списать комиссию'])
+
+excel_list_error_commission.set_column_width(150, 120, 150, 120, 150)
+excel_file_2 = excel_2.save_file(excel_dir, file_name=excel_2_file_name)
+
 cn.disconnect()
 cn_edo.disconnect()
 
 # отправляем сообщение
 report = Report(subject, recipients=recipients)
 report.add_file(join(excel_dir, excel_file))
+report.add_file(join(excel_dir, excel_file_2))
 report.update_message(message)
 report.send_letter()
 

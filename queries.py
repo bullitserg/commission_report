@@ -90,3 +90,66 @@ AND p.inn = '%(supplier_inn)s'
 AND p.type = 'commission'
 ;'''
 
+
+get_good_commission_info_query = '''SELECT
+  p1.registrationNumber AS 'Номер закупки',
+  p.publicationDateTime AS 'Дата публикации протокола',
+  o.inn AS 'Участник для списания комиссии'
+FROM procedureProtocol p
+  JOIN procedureProtocolContractRefuse pcr
+    ON pcr.id = p.id
+    AND pcr.initiator = 'customer'
+    AND pcr.refuseStatusId = 54
+  JOIN procedureContract c
+    ON c.id = pcr.contractId
+    AND c.actualId IS NULL
+  JOIN organization o
+    ON o.id = c.supplierId
+  JOIN procedures p1
+    ON p1.id = p.procedureId
+    AND p1.publicationDateTime > '2018-10-01 00:00:00'
+WHERE p.typeCode IN ('protocol.contract.refuse')
+AND p.status = 24
+AND p.actualId IS NULL
+AND p.publicationDateTime BETWEEN DATE_FORMAT(SUBDATE(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 00:00:00')
+  AND DATE_FORMAT(SUBDATE(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 23:59:59')
+GROUP BY p1.registrationNumber
+HAVING COUNT(p.id) = 1
+;'''
+
+
+get_error_commission_info_query = '''SELECT
+  p1.registrationNumber AS 'Номер закупки',
+  p.publicationDateTime AS 'Дата публикации протокола',
+  o1.inn AS 'Участник с которого некорректно списана комиссия',
+  c1.actualCustomerSignToDateTime AS 'Дата подписания контракта',
+  o.inn AS 'Участник с которого надлежит списать комиссию'
+FROM procedureProtocol p
+  JOIN procedureProtocolContractRefuse pcr
+    ON pcr.id = p.id
+    AND pcr.initiator = 'customer'
+    AND pcr.refuseStatusId = 54
+  JOIN procedureContract c
+    ON c.id = pcr.contractId
+    AND c.actualId IS NULL
+  JOIN organization o
+    ON o.id = c.supplierId
+  JOIN procedureContract c1
+    ON c1.procedureId = p.procedureId
+    AND c1.supplierId != c.supplierId
+    AND c1.contractStatusId = 15
+    AND c1.actualId IS NULL
+    AND c1.actualCustomerSignToDateTime BETWEEN DATE_FORMAT(SUBDATE(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 00:00:00')
+  AND DATE_FORMAT(SUBDATE(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 23:59:59')
+  JOIN organization o1
+    ON o1.id = c1.supplierId
+  JOIN procedures p1
+    ON p1.id = p.procedureId
+    AND p1.publicationDateTime > '2018-10-01 00:00:00'
+WHERE p.typeCode IN ('protocol.contract.refuse')
+AND p.status = 24
+AND p.actualId IS NULL
+GROUP BY p1.registrationNumber
+HAVING COUNT(p.id) = 1
+ORDER BY c1.actualCustomerSignToDateTime DESC
+;'''
