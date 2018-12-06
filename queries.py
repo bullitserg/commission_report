@@ -91,10 +91,67 @@ AND p.type = 'commission'
 ;'''
 
 
+# get_good_commission_info_query = '''SELECT
+#   p1.registrationNumber AS 'Номер закупки',
+#   p.publicationDateTime AS 'Дата публикации протокола',
+#   o.inn AS 'Участник для списания комиссии'
+# FROM procedureProtocol p
+#   JOIN procedureProtocolContractRefuse pcr
+#     ON pcr.id = p.id
+#     AND pcr.initiator = 'customer'
+#     AND pcr.refuseStatusId = 54
+#   JOIN procedureContract c
+#     ON c.id = pcr.contractId
+#     AND c.actualId IS NULL
+#   JOIN organization o
+#     ON o.id = c.supplierId
+#   JOIN procedures p1
+#     ON p1.id = p.procedureId
+#     AND p1.publicationDateTime > '2018-10-01 00:00:00'
+# WHERE p.typeCode IN ('protocol.contract.refuse')
+# AND p.status = 24
+# AND p.actualId IS NULL
+# AND p.publicationDateTime BETWEEN DATE_FORMAT(SUBDATE(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 00:00:00')
+#   AND DATE_FORMAT(SUBDATE(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 23:59:59')
+# GROUP BY p1.registrationNumber
+# HAVING COUNT(p.id) = 1
+# ;'''
+
+
 get_good_commission_info_query = '''SELECT
-  p1.registrationNumber AS 'Номер закупки',
-  p.publicationDateTime AS 'Дата публикации протокола',
-  o.inn AS 'Участник для списания комиссии'
+  p.registrationNumber AS registration_number,
+  SUM(IFNULL(lc.provisionAmount, 0)) AS provision_amount,
+  REPLACE(o.fullName, "'", '"') AS supplier_full_name,
+  REPLACE(o.shortName, "'", '"') AS supplier_short_name,
+  o.inn AS supplier_inn,
+  o.kpp AS supplier_kpp,
+  IF(pf.id IS NOT NULL, 'Да', 'Нет') AS is_smp,
+  protocol_table.publicationDateTime AS contract_datetime,
+  l.maxSum AS max_sum,
+  a.customAddress AS supplier_address,
+  r.additionalData AS additional_data,
+  r.id AS request_id
+FROM procedures p
+  JOIN procedureLot l
+    ON l.procedureId = p.id
+    AND l.actualId IS NULL
+    AND l.archive = 0
+  JOIN procedureLotCustomer lc
+    ON lc.lotId = l.id
+    AND lc.actualId IS NULL
+    AND lc.archive = 0
+  JOIN procedureRequest r
+    ON r.procedureId = p.id
+    AND r.actualId IS NULL
+    AND r.active = 1
+    AND r.requestStatusId = 20
+  JOIN organization o
+    ON o.id = r.organizationId
+  JOIN
+  (SELECT
+  p1.id AS procedure_id,
+  p.publicationDateTime,
+  o.id AS supplier_id
 FROM procedureProtocol p
   JOIN procedureProtocolContractRefuse pcr
     ON pcr.id = p.id
@@ -114,9 +171,21 @@ AND p.actualId IS NULL
 AND p.publicationDateTime BETWEEN DATE_FORMAT(SUBDATE(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 00:00:00')
   AND DATE_FORMAT(SUBDATE(NOW(), INTERVAL 1 DAY), '%Y-%m-%d 23:59:59')
 GROUP BY p1.registrationNumber
-HAVING COUNT(p.id) = 1
-;'''
+HAVING COUNT(p.id) = 1) AS protocol_table
+  ON protocol_table.procedure_id = p.id
+  AND protocol_table.supplier_id = o.id
+  JOIN organizationAddress a
+    ON a.id = o.factualAddressId
+  LEFT JOIN procedureRestriction pf ON pf.procedureId = p.id
+    AND pf.preferenceTypeId = 45
 
+WHERE p.publicationDateTime > '2018-10-01 00:00:00'
+AND p.actualId IS NULL
+AND p.archive = 0
+AND p.procedureStatusId != 80
+AND p.procedureTypeId = 5
+ORDER BY protocol_table.publicationDateTime DESC
+;'''
 
 get_error_commission_info_query = '''SELECT
   p1.registrationNumber AS 'Номер закупки',
