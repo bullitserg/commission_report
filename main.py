@@ -30,6 +30,10 @@ def commission_worker(procedure_bd_info):
     excel_data_with_account = []
     excel_data_no_account = []
     for request_info in procedure_bd_info:
+
+        if not request_info['registration_number']:
+            continue
+
         if request_info['additional_data']:
             request_info['additional_data'] = json.loads(request_info['additional_data'])
             request_info['account_id'] = None if type(request_info['additional_data']) is list else \
