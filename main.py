@@ -1,5 +1,4 @@
 import json
-import decimal
 from os.path import join
 from datetime import datetime
 from ets.ets_mysql_lib import MysqlConnection as Mc
@@ -12,11 +11,6 @@ from ets.ets_email_lib import Report
 
 url = __OPERATIONS[OPERATION_GET_COMMISSION]['url']
 token = __OPERATIONS[OPERATION_GET_COMMISSION]['headers']['Postman-Token']
-
-nds_param_DEC = decimal.Decimal(0.18)
-# smp_max_nds_DEC = decimal.Decimal(305.08)
-smp_max_block_DEC = decimal.Decimal(2000)
-no_smp_max_block_DEC = decimal.Decimal(5000)
 
 date_str = datetime.now().strftime('%d.%m.%Y')
 
@@ -54,12 +48,14 @@ def commission_worker(procedure_bd_info):
         request_info['max_sum_nds'] = request_info['max_sum_1_percent'] * nds_param_DEC
 
         if request_info['is_smp'] == 'Да':
-            request_info['take_commission'] = False if request_info['max_sum_1_percent'] < 118 else True
+            request_info['take_commission'] = False if \
+                request_info['max_sum_1_percent'] < (100 + (nds_param_DEC * 100)) else True
             if request_info['max_sum_1_percent'] >= smp_max_block_DEC:
-                request_info['nds'] = smp_max_block_DEC * 18 / 118
+                request_info['nds'] = smp_max_block_DEC * (nds_param_DEC * 100) / (100 + (nds_param_DEC * 100))
                 request_info['to_block'] = smp_max_block_DEC
             else:
-                request_info['nds'] = request_info['max_sum_1_percent'] * 18 / 118
+                request_info['nds'] = request_info['max_sum_1_percent'] * (nds_param_DEC * 100) / \
+                                      (100 + (nds_param_DEC * 100))
                 request_info['to_block'] = request_info['max_sum_1_percent']
         else:
             request_info['take_commission'] = False if request_info['max_sum_1_percent'] < 100 else True
@@ -79,7 +75,7 @@ def commission_worker(procedure_bd_info):
                                                  request_info['supplier_full_name'],
                                                  'на сумму',
                                                  str(request_info['to_block']),
-                                                 'в т.ч. НДС (18%)',
+                                                 'в т.ч. НДС (20%)',
                                                  str(request_info['nds'])))
 
         request_info['subject_short'] = ' '.join(('Списание платы за участие в закупке',
@@ -88,7 +84,7 @@ def commission_worker(procedure_bd_info):
                                                   else '',
                                                   'на сумму',
                                                   str(request_info['to_block']),
-                                                  'в т.ч. НДС (18%)',
+                                                  'в т.ч. НДС (20%)',
                                                   str(request_info['nds'])))
 
         request_info['subject'] = request_info['subject_short'] if len(request_info['subject_full']) > 210 \
